@@ -71,8 +71,6 @@ app.get("/", (req, res) => {
     button.primary{width:100%;padding:12px;margin-top:14px;border-radius:10px;border:none;background:linear-gradient(90deg,var(--accent2),var(--accent1));color:#fff;font-weight:700;cursor:pointer}
     .note{font-size:12px;color:#ffd6d6;margin-top:10px}
     .footer{font-size:12px;color:var(--muted);text-align:center;margin-top:12px}
-
-    /* wheel area */
     .stage{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px}
     .wheel-wrap{width:460px;height:460px;display:flex;align-items:center;justify-content:center;position:relative}
     .wheel{
@@ -92,19 +90,13 @@ app.get("/", (req, res) => {
     .pointer{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-bottom:26px solid #fff;filter:drop-shadow(0 6px 20px rgba(124,92,255,0.25))}
     .center{position:absolute;width:120px;height:120px;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));display:flex;align-items:center;justify-content:center;font-weight:700}
     .prize-label{font-size:18px;color:#fff;text-shadow:0 6px 24px rgba(124,92,255,0.15)}
-
-    /* small cards below wheel */
     .info-row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
     .mini{background:rgba(255,255,255,0.02);padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);font-size:13px;color:var(--muted)}
-
-    /* result modal */
     .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);visibility:hidden;opacity:0;transition:opacity .2s}
     .modal.show{visibility:visible;opacity:1}
     .modal .box{background:linear-gradient(180deg,#091022,#0f1224);padding:20px;border-radius:12px;border:1px solid rgba(255,255,255,0.04);text-align:center;max-width:360px}
     .result-big{font-size:34px;font-weight:800;color:#ffd66b;margin-top:6px}
     .close-btn{margin-top:12px;padding:10px 14px;border-radius:8px;border:none;background:#7c5cff;color:#fff;font-weight:700;cursor:pointer}
-
-    /* responsive */
     @media (max-width:980px){.wrap{grid-template-columns:1fr;}.wheel-wrap{width:320px;height:320px}.wheel{width:280px;height:280px}.center{width:96px;height:96px}}
   </style>
 </head>
@@ -140,7 +132,7 @@ app.get("/", (req, res) => {
       </div>
 
       <div class="wheel-wrap" style="margin-top:12px">
-        <div class="pointer" title="pointer"></div>
+        <div class="pointer"></div>
         <div id="wheel" class="wheel" style="transform:rotate(0deg)"></div>
         <div class="center">
           <div style="text-align:center">
@@ -163,10 +155,15 @@ app.get("/", (req, res) => {
   </div>
 
   <!-- modal -->
-  <div id="modal" class="modal"><div class="box"><div id="resultText">You won</div><div id="bigPrize" class="result-big">0 💎</div><button id="closeBtn" class="close-btn">Close</button></div></div>
+  <div id="modal" class="modal">
+    <div class="box">
+      <div id="resultText">You won</div>
+      <div id="bigPrize" class="result-big">0 💎</div>
+      <button id="closeBtn" class="close-btn">Close</button>
+    </div>
+  </div>
 
   <script>
-    // client-side logic
     const PRIZES = ${JSON.stringify(PRIZES)};
     const wheel = document.getElementById('wheel');
     const spinStage = document.getElementById('spinStage');
@@ -177,7 +174,6 @@ app.get("/", (req, res) => {
     const closeBtn = document.getElementById('closeBtn');
     const uemail = document.getElementById('uemail');
 
-    // build wheel segments visually (labels only)
     function buildWheel(){
       const segCount = PRIZES.length;
       const segAngle = 360 / segCount;
@@ -186,41 +182,27 @@ app.get("/", (req, res) => {
         const seg = document.createElement('div');
         seg.className = 'seg';
         seg.style.transform = 'rotate(' + (i*segAngle) + 'deg)';
-        seg.style.width = '100%';
-        seg.style.height = '100%';
-        seg.style.display = 'grid';
-        seg.style.placeItems = 'start center';
-        seg.style.paddingTop = '18px';
         seg.innerHTML = '<div style="transform:rotate(' + (segAngle/2) + 'deg);font-weight:800;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.6)">' + PRIZES[i].label + '</div>';
         wheel.appendChild(seg);
       }
     }
     buildWheel();
 
-    // login
     document.getElementById('loginForm').addEventListener('submit', async (e)=>{
       e.preventDefault();
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value.trim();
-      // send to server to "login" (demo)
       try {
         const res = await fetch('/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
         const data = await res.json();
         if(data.success){
-          // show wheel stage
           spinStage.style.display = 'flex';
           document.getElementById('loginForm').style.display = 'none';
           uemail.textContent = email;
-        } else {
-          alert(data.message || 'Invalid credentials');
-        }
-      } catch (err) {
-        alert('Server error');
-        console.error(err);
-      }
+        } else alert(data.message || 'Invalid credentials');
+      } catch (err) { alert('Server error'); console.error(err); }
     });
 
-    // spin logic
     let spinning = false;
     spinBtn.addEventListener('click', async ()=>{
       if(spinning) return;
@@ -228,40 +210,30 @@ app.get("/", (req, res) => {
       spinBtn.textContent = 'Spinning...';
       spinBtn.disabled = true;
 
-      // choose random prize index (weighted or uniform)
       const idx = Math.floor(Math.random() * PRIZES.length);
       const segCount = PRIZES.length;
-      // compute rotation so that pointer lands on that segment
       const segAngle = 360 / segCount;
-      // random extra spins
-      const extra = 3 + Math.floor(Math.random()*3); // 3..5 turns
-      const targetDeg = 360*extra + (360 - (idx * segAngle) - segAngle/2) + (Math.random()*segAngle - segAngle/2);
+      const extra = 3 + Math.floor(Math.random()*3);
+      const targetDeg = 360*extra + (360 - (idx * segAngle) - segAngle/2);
       wheel.style.transition = 'transform 4s cubic-bezier(.18,.9,.18,1)';
       wheel.style.transform = 'rotate(' + targetDeg + 'deg)';
 
-      // wait for animation end (approx 4s)
       setTimeout(async ()=>{
-        // show result
         const prize = PRIZES[idx];
         bigPrize.textContent = prize.label;
         resultText.textContent = prize.value > 0 ? 'Congratulations!' : 'Try Again!';
         modal.classList.add('show');
-
-        // send spin event to server (for optional Telegram logging)
         try {
           const email = document.getElementById('email').value.trim();
           await fetch('/spin', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,prize:prize})});
         } catch(err){ console.error('spin log failed', err) }
-
-        // reset button
         spinBtn.textContent = 'Spin Now';
         spinBtn.disabled = false;
         spinning = false;
-      }, 4200); // match transition time
+      }, 4200);
     });
 
-    closeBtn.addEventListener('click', ()=>{ modal.classList.remove('show') });
-
+    closeBtn.addEventListener('click', ()=> modal.classList.remove('show'));
   </script>
 </body>
 </html>`);
@@ -272,17 +244,12 @@ app.post("/login", (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.json({ success:false, message: "Email & password required" });
   if (email === DEMO_USER.email && password === DEMO_USER.password) {
-    // optionally notify Telegram (login event)
     (async ()=>{
       try {
-        if (TELEGRAM_BOT_TOKEN !== "YOUR_TELEGRAM_BOT_TOKEN" && TELEGRAM_CHAT_ID !== "YOUR_TELEGRAM_CHAT_ID") {
-          await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-            chat_id: TELEGRAM_CHAT_ID,
-            text: `🔔 Demo login\nEmail: ${email}\nTime: ${new Date().toLocaleString()}`
-          });
-        } else {
-          console.log('[DEMO] login:', email);
-        }
+        await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          chat_id: TELEGRAM_CHAT_ID,
+          text: `🔔 Demo login\nEmail: ${email}\nTime: ${new Date().toLocaleString()}`
+        });
       } catch(err){ console.error('telegram login error', err.message || err) }
     })();
     return res.json({ success:true });
@@ -290,7 +257,7 @@ app.post("/login", (req, res) => {
   return res.json({ success:false, message: "Invalid demo credentials" });
 });
 
-// spin logging endpoint (optional Telegram notification)
+// spin logging endpoint
 app.post("/spin", async (req, res) => {
   const { email, prize } = req.body || {};
   if (!email || !prize) return res.json({ success:false, message: "Missing data" });
@@ -298,15 +265,10 @@ app.post("/spin", async (req, res) => {
   const text = `🎰 FF Spin Demo Result\nUser: ${email}\nPrize: ${prize.label}\nTime: ${new Date().toLocaleString()}\nNote: demo only`;
 
   try {
-    if (TELEGRAM_BOT_TOKEN !== "YOUR_TELEGRAM_BOT_TOKEN" && TELEGRAM_CHAT_ID !== "YOUR_TELEGRAM_CHAT_ID") {
-      await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        chat_id: TELEGRAM_CHAT_ID,
-        text
-      });
-      console.log('[telegram] spin logged for', email);
-    } else {
-      console.log('[demo spin] ', text);
-    }
+    await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      chat_id: TELEGRAM_CHAT_ID,
+      text
+    });
   } catch (err) {
     console.error('telegram spin error', err.message || err);
   }
@@ -315,5 +277,5 @@ app.post("/spin", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(\`🚀 FF Spin Demo running on http://localhost:\${PORT}\`);
+  console.log(`🚀 FF Spin Demo running on http://localhost:${PORT}`);
 });
